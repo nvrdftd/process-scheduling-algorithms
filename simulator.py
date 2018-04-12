@@ -7,11 +7,15 @@ Input file:
 Output files:
     FCFS.txt
     RR.txt
-    SRTF_1.txt
-    SRTF_2.txt
-
-Apr 10th Revision 1: update FCFS implementation, fixed the bug when there are idle time slices between processes
-Thanks Huang Lung-Chen for pointing out
+    SRTF.txt
+    SJF.txt
+Apr 10th Revision 1:
+    Update FCFS implementation, fixed the bug when there are idle time slices between processes
+    Thanks Huang Lung-Chen for pointing out
+Revision 2:
+    Change requirement for future_prediction SRTF => future_prediction shortest job first(SJF), the simpler non-preemptive version.
+    Let initial guess = 5 time units.
+    Thanks Lee Wei Ping for trying and pointing out the difficulty & ambiguity with future_prediction SRTF.
 '''
 import sys
 
@@ -47,11 +51,11 @@ def FCFS_scheduling(process_list):
 def RR_scheduling(process_list, time_quantum ):
     return (["to be completed, scheduling process_list on round robin policy with time_quantum"], 0.0)
 
-def SRTF_1_scheduling(process_list):
+def SRTF_scheduling(process_list):
     return (["to be completed, scheduling process_list on SRTF, using process.burst_time to calculate the remaining time of the current process "], 0.0)
 
-def SRTF_2_scheduling(process_list, alpha):
-    return (["to be completed, scheduling SRTF without using information from process.burst_time"],0.0)
+def SJF_scheduling(process_list, alpha):
+    return (["to be completed, scheduling SJF without using information from process.burst_time"],0.0)
 
 
 def read_input():
@@ -82,12 +86,12 @@ def main(argv):
     print ("simulating RR ----")
     RR_schedule, RR_avg_waiting_time =  RR_scheduling(process_list,time_quantum = 2)
     write_output('RR.txt', RR_schedule, RR_avg_waiting_time )
-    print ("simulating SRTF 1 ----")
-    SRTF_1_schedule, SRTF_1_avg_waiting_time =  SRTF_1_scheduling(process_list)
-    write_output('SRTF_1.txt', SRTF_1_schedule, SRTF_1_avg_waiting_time )
-    print ("simulating SRTF 2 ----")
-    SRTF_2_schedule, SRTF_2_avg_waiting_time =  SRTF_2_scheduling(process_list, alpha = 0.5)
-    write_output('SRTF_2.txt', SRTF_2_schedule, SRTF_2_avg_waiting_time )
+    print ("simulating SRTF ----")
+    SRTF_schedule, SRTF_avg_waiting_time =  SRTF_scheduling(process_list)
+    write_output('SRTF.txt', SRTF_schedule, SRTF_avg_waiting_time )
+    print ("simulating SJF ----")
+    SJF_schedule, SJF_avg_waiting_time =  SJF_scheduling(process_list, alpha = 0.5)
+    write_output('SJF.txt', SJF_schedule, SJF_avg_waiting_time )
 
 if __name__ == '__main__':
     main(sys.argv[1:])
