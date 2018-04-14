@@ -1,7 +1,7 @@
 '''
 CS5250 Assignment 4, Scheduling policies simulator
 Sample skeleton program
-Author: Minh Ho
+Author: Minh Ho, Lung-Chen Huang
 Input file:
     input.txt
 Output files:
@@ -52,7 +52,7 @@ class minHeap:
         if self.size == 0:
             return None
         return self.binary_heap[1]
-        
+
     # Use the following bubble_up and bubble_down to maintain the minHeap properties
     def bubble_up(self, last_i):
         if last_i == 1:
