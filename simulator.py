@@ -69,21 +69,21 @@ class minHeap:
         left_i = parent_i * 2
         right_i = parent_i * 2 + 1
 
-        left_diff = 0
-        right_diff = 0
+        left_diff = -1
+        right_diff = -1
 
         if left_i <= self.size:
             left_diff = self.binary_heap[parent_i].remaining_time - self.binary_heap[left_i].remaining_time
         if right_i <= self.size:
             right_diff = self.binary_heap[parent_i].remaining_time - self.binary_heap[right_i].remaining_time
 
-        if left_diff > 0 and left_diff > right_diff:
+        if left_diff >= 0 and left_diff > right_diff:
             tmp = self.binary_heap[parent_i]
             self.binary_heap[parent_i] = self.binary_heap[left_i]
             self.binary_heap[left_i] = tmp
             self.bubble_down(left_i)
 
-        if right_diff > 0 and right_diff > left_diff:
+        if right_diff >= 0 and right_diff > left_diff:
             tmp = self.binary_heap[parent_i]
             self.binary_heap[parent_i] = self.binary_heap[right_i]
             self.binary_heap[right_i] = tmp
@@ -102,6 +102,14 @@ def ds_test():
     for process in arrived_heap.binary_heap:
         print(process)
 
+def save_schedule(schedule, current_time, process):
+    context_switch = False
+    if len(schedule) == 0:
+        context_switch = True
+    if len(schedule) > 0 and schedule[-1][0] != current_time and schedule[-1][1] != process.id:
+        context_switch = True
+    if context_switch:
+        schedule.append((current_time, process.id))
 
 class Process:
     last_scheduled_time = 0
@@ -115,20 +123,20 @@ class Process:
     def __repr__(self):
         return ('[id %d : arrive_time %d,  burst_time %d, remaining_time %d]'%(self.id, self.arrive_time, self.burst_time, self.remaining_time))
 
-    def save_result(self, current_time, schedule, remaining_num, total_wait_time):
+    def save_result(self, current_time, remaining_num, total_wait_time):
         if self.remaining_time == 0 and not self.completed:
             wait_time = current_time - self.burst_time - self.arrive_time
             total_wait_time += wait_time
             remaining_num -= 1
             self.completed = True
-            schedule.append((current_time, self.id))
             print("Process %d total wait time: %d" % (self.id, wait_time))
             print("Remaining processes: %d" % remaining_num)
 
-        if self.remaining_time != 0:
-            schedule.append((current_time, self.id))
-
-        return current_time, schedule, remaining_num, total_wait_time
+        return remaining_num, total_wait_time
+    # Assume that each pid is associated with its own previous predicted burst time
+    def future_predict(self, alpha):
+        self.remaining_time = alpha * self.burst_time + (1 - alpha) * self.remaining_time
+        return self.remaining_time
 
 def FCFS_scheduling(process_list):
     #store the (switching time, proccess_id) pair
@@ -163,25 +171,16 @@ def RR_scheduling(process_list, time_quantum ):
 
     while remaining_num > 0:
         if process_list[i].remaining_time > time_quantum:
+            save_schedule(schedule, current_time, process_list[i])
             current_time += time_quantum
             process_list[i].remaining_time -= time_quantum
             last_seen_remaining_num += 1
-
         elif process_list[i].remaining_time <= time_quantum and process_list[i].remaining_time > 0:
+            save_schedule(schedule, current_time, process_list[i])
             current_time += process_list[i].remaining_time
             process_list[i].remaining_time = 0
 
-        if process_list[i].remaining_time == 0 and not process_list[i].completed:
-            wait_time = current_time - process_list[i].burst_time - process_list[i].arrive_time
-            total_wait_time += wait_time
-            remaining_num -= 1
-            process_list[i].completed = True
-            print("Process %d total wait time: %d" % (process_list[i].id, wait_time))
-            schedule.append((current_time, process_list[i].id))
-            print("Remaining processes: %d" % remaining_num)
-
-        if process_list[i].remaining_time != 0:
-            schedule.append((current_time, process_list[i].id))
+        remaining_num, total_wait_time = process_list[i].save_result(current_time, remaining_num, total_wait_time)
 
         i += 1
 
@@ -228,14 +227,16 @@ def SRTF_scheduling(process_list):
 
             # Make sure the next process will arrive only after the is-about-to-execute process has completed.
             if interval_by_next_arrival >= process_list[i].remaining_time and process_list[i].remaining_time > 0:
-                # Make sure the remaining_time of the is-about-to-execute process is less than or equal to the min in the heap.
+                # Make sure the remaining_time of the is-about-to-execute process is less than the min in the heap.
                 process = process_heap.peek()
-                if process == None or process_list[i].remaining_time <= process.remaining_time:
+                if process == None or process_list[i].remaining_time < process.remaining_time:
                     process = process_list[i]
+                    save_schedule(schedule, current_time, process)
                     current_time += process.remaining_time
                 # Make sure that the processor will execute the min in the heap, saving the is-about-to-execute process.
-                elif process != None and process_list[i].remaining_time > process.remaining_time:
+                elif process != None and process_list[i].remaining_time >= process.remaining_time:
                     process = process_heap.removeMin()
+                    save_schedule(schedule, current_time, process)
                     current_time += process.remaining_time
                     process_heap.insert(process_list[i])
 
@@ -244,23 +245,26 @@ def SRTF_scheduling(process_list):
             # Make sure the next process will arrive before the is-about-to-execute process has completed.
             if interval_by_next_arrival < process_list[i].remaining_time:
                 process = process_heap.peek()
-                if process == None or process_list[i].remaining_time <= process.remaining_time:
+                if process == None or process_list[i].remaining_time < process.remaining_time:
                     process = process_list[i]
+                    save_schedule(schedule, current_time, process)
                     process.remaining_time -= interval_by_next_arrival
                     current_time += interval_by_next_arrival
                 # Make sure that the processor will execute the min in the heap, saving the is-about-to-execute process.
-                elif process != None and process_list[i].remaining_time > process.remaining_time:
+                elif process != None and process_list[i].remaining_time >= process.remaining_time:
                     if interval_by_next_arrival < process.remaining_time:
+                        save_schedule(schedule, current_time, process)
                         process.remaining_time -= interval_by_next_arrival
                         current_time += interval_by_next_arrival
                     else:
                         process = process_heap.removeMin()
+                        save_schedule(schedule, current_time, process)
                         current_time += process.remaining_time
                         process.remaining_time = 0
 
                 process_heap.insert(process_list[i])
 
-            current_time, schedule, remaining_num, total_wait_time = process.save_result(current_time, schedule, remaining_num, total_wait_time)
+            remaining_num, total_wait_time = process.save_result(current_time, remaining_num, total_wait_time)
 
             i += 1
 
@@ -272,14 +276,16 @@ def SRTF_scheduling(process_list):
                     process = process_heap.peek()
                     if interval_by_next_arrival < process.remaining_time:
                         exec_time = interval_by_next_arrival
+                        save_schedule(schedule, current_time, process)
                         current_time += exec_time
                         process.remaining_time -= exec_time
 
                     elif interval_by_next_arrival >= process.remaining_time:
                         process = process_heap.removeMin()
+                        save_schedule(schedule, current_time, process)
                         current_time += process.remaining_time
                         process.remaining_time = 0
-                    current_time, schedule, remaining_num, total_wait_time = process.save_result(current_time, schedule, remaining_num, total_wait_time)
+                    remaining_num, total_wait_time = process.save_result(current_time, remaining_num, total_wait_time)
 
                 else:
                     print("Processor being idle for %d burst time..." % interval_by_next_arrival)
@@ -296,17 +302,63 @@ def SRTF_scheduling(process_list):
             process_heap.insert(process_list[i])
             while process_heap.size > 0:
                 process = process_heap.removeMin()
+                save_schedule(schedule, current_time, process)
                 current_time += process.remaining_time
-                wait_time = current_time - process.burst_time - process.arrive_time
                 process.remaining_time = 0
-                current_time, schedule, remaining_num, total_wait_time = process.save_result(current_time, schedule, remaining_num, total_wait_time)
+                remaining_num, total_wait_time = process.save_result(current_time, remaining_num, total_wait_time)
 
     average_wait_time = total_wait_time/float(n)
     return schedule, average_wait_time
+
 def SJF_scheduling(process_list, alpha):
-    return (["to be completed, scheduling SJF without using information from process.burst_time"],0.0)
+    process_list = copy.deepcopy(process_list)
+    process_heap = minHeap()
+    schedule = list()
+    predicted_record = dict()
+    current_time = 0
+    total_wait_time = 0
+    idle = False
 
+    i = 0
+    n = len(process_list)
+    remaining_num = n
+    print("Remaining processes: %d" % remaining_num)
+    while remaining_num > 0:
+        if i < n:
+            if current_time >= process_list[i].arrive_time:
+                if predicted_record.get(process_list[i].id) != None:
+                    process_list[i].remaining_time = predicted_record.get(process_list[i].id)
+                else:
+                    process_list[i].remaining_time = 5
+                process_heap.insert(process_list[i])
+                i += 1
+            elif current_time < process_list[i].arrive_time and process_heap.peek() != None:
+                process = process_heap.removeMin()
+                save_schedule(schedule, current_time, process)
+                predicted_record[process.id] = process.future_predict(alpha)
+                current_time += process.burst_time
+                process.remaining_time = 0
+                remaining_num, total_wait_time = process.save_result(current_time, remaining_num, total_wait_time)
+            elif current_time < process_list[i].arrive_time:
+                interval_by_next_arrival = process_list[i].arrive_time - current_time
+                print("Processor being idle for %d burst time..." % interval_by_next_arrival)
+                idle = True
 
+            if idle:
+                print("New processes arriving...")
+                current_time = process_list[i].arrive_time
+                idle = False
+
+        if i == n:
+            while process_heap.size > 0:
+                process = process_heap.removeMin()
+                save_schedule(schedule, current_time, process)
+                current_time += process.burst_time
+                process.remaining_time = 0
+                remaining_num, total_wait_time = process.save_result(current_time, remaining_num, total_wait_time)
+
+    average_wait_time = total_wait_time/float(n)
+    return schedule, average_wait_time
 def read_input():
     result = []
     with open(input_file) as f:
